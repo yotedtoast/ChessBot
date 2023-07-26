@@ -128,4 +128,13 @@ public class MyBot : IChessBot
         board.UndoMove(m);
         return captureValue - bestRecaptureValue;
     }
+
+    int EvaluatePieceAdvantage(PieceList[] pieceLists)
+    {
+        int total = 0;
+        foreach (PieceList pieces in pieceList) 
+        {
+            if (pieces.IsWhitePieceList)
+        }
+    }
 }
