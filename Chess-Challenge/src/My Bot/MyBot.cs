@@ -6,6 +6,7 @@ public class MyBot : IChessBot
 {
     // Piece values: null, pawn, knight, bishop, rook, queen, king
     int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
+    int i = 0;
 
     public Move Think(Board board, Timer timer)
     {
@@ -26,12 +27,35 @@ public class MyBot : IChessBot
                 break;
             }
 
-            currentMoveValue = GetCaptureValue(board, move) - MostValuableCapture(board, move);
-            if (currentMoveValue > highestMoveValue) {moveToPlay = move;}
+            //Sets the current move value to the value of the 2 depth capture chain
+            i = 0;
+            currentMoveValue = EvaluateCaptureValue(board, move, 900);
+
+
+
+            board.MakeMove(move);
+            //Gives half a pawn worth of weight to checks, can be evaluated later on to scale with number of pieces gone
+            if (board.IsInCheck()) { currentMoveValue += 50; }
+            //If the next move will cause a repition, avoid the move
+            if (board.IsRepeatedPosition()) { currentMoveValue -= 110; }
+            //Pawn moves should be supported to avoid 50 move rule
+            if (move.MovePieceType == PieceType.Pawn) { currentMoveValue += 10; }
+            board.UndoMove(move);
+
+            //In case of promotions, all non-queen promotions should have a very strong negative weight
+            if (move.IsPromotion && (move.PromotionPieceType != PieceType.Queen)) { continue; }
+
+
+            // Sets current best move
+            if (currentMoveValue > highestMoveValue)
+            {
+                moveToPlay = move;
+                highestMoveValue = currentMoveValue;
+            }
 
 
         }
-
+        //Console.WriteLine("Move value: " + highestMoveValue);
         return moveToPlay;
     }
 
@@ -44,29 +68,73 @@ public class MyBot : IChessBot
         return isMate;
     }
 
-    //Takes a board and determines the most valuable capture given that board
-    int MostValuableCapture(Board board, Move m)
+    //Takes a move and assigns a value based on the worst case scenario recapture
+    int EvaluateCaptureValue(Board board, Move m)
     {
+        int captureValue = pieceValues[(int)m.CapturePieceType];
+        int bestRecaptureValue = 0;
         board.MakeMove(m);
-        int highest = 0;
-        Move[] possibleCaptures = board.GetLegalMoves(true);
-        if (possibleCaptures == null)   return 0;
-        foreach (Move move in possibleCaptures)
+        //By evaluating more than just captures, I can literally just check the value of every move
+        Move[] possibleRecaptures = board.GetLegalMoves();
+        if (possibleRecaptures == null)
         {
-            if (GetCaptureValue(board, move) > highest)
+            return captureValue;
+        }
+        foreach (Move move in possibleRecaptures)
+        {
+            if (pieceValues[(int)move.CapturePieceType] > bestRecaptureValue)
             {
-                highest = pieceValues[(int)move.CapturePieceType];
+                bestRecaptureValue = pieceValues[(int)move.CapturePieceType];
             }
         }
         board.UndoMove(m);
-        return 0;
+        return captureValue - bestRecaptureValue;
     }
 
-    int GetCaptureValue(Board board, Move move)
+    int EvaluateCaptureValue(Board board, Move m, int recursions)
     {
-        Piece capturedPiece = board.GetPiece(move.TargetSquare);
-        return pieceValues[(int)capturedPiece.PieceType];
+        
+        int captureValue = pieceValues[(int)m.CapturePieceType];
+        int bestRecaptureValue = 0;
+        board.MakeMove(m);
+        //By evaluating more than just captures, I can literally just check the value of every move
+        Move[] possibleRecaptures = board.GetLegalMoves();
+
+        if ((possibleRecaptures == null) || (possibleRecaptures.Length == 0) )
+        {
+            board.UndoMove(m);
+            return captureValue;
+        }
+        if (board.IsInCheckmate()) 
+        {
+            board.UndoMove(m);
+            return 1000;
+        }
+        if (board.IsInsufficientMaterial()) 
+        {
+            board.UndoMove(m);
+            return 0; 
+        }
+        Move bestRecaptureMove = possibleRecaptures[0];
+
+        if (recursions == i) { return 0; }
+        foreach (Move move in possibleRecaptures)
+        {
+            if (EvaluateCaptureValue(board, move) > bestRecaptureValue)
+            {
+                bestRecaptureValue = pieceValues[(int)move.CapturePieceType];
+            }
+        }
+        board.UndoMove(m);
+        return captureValue - bestRecaptureValue;
     }
 
-
+    int EvaluatePieceAdvantage(PieceList[] pieceLists)
+    {
+        int total = 0;
+        foreach (PieceList pieces in pieceList) 
+        {
+            if (pieces.IsWhitePieceList)
+        }
+    }
 }
